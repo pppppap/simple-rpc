@@ -1,0 +1,24 @@
+# folder
+target/*
+*/target/*
+logs/*
+
+# files
+*.class
+*.lst
+*.prefs
+*.classpath
+*.project
+*.component
+*.MF
+*.iml
+
+# Package Files #
+*.jar
+*.war
+*.ear
+target/
+*.iml
+.idea/
+ResultCode.txt
+/bin/
