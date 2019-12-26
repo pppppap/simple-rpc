@@ -19,6 +19,7 @@ public class ChannelContext {
 
     public ChannelContext(SocketChannel channel, Codec codec) {
         this.channel = channel;
+        this.codec = codec;
     }
 
     public SocketChannel channel() {
@@ -51,7 +52,7 @@ public class ChannelContext {
         }
     }
 
-    public Codec codec(){
+    public Codec codec() {
         return codec;
     }
 }
