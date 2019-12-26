@@ -1,7 +1,8 @@
 package com.pppppap.rpc.server;
 
+import com.pppppap.rpc.ChannelContext;
 import com.pppppap.rpc.Dispatcher;
-import com.pppppap.rpc.codec.JdkCodec;
+import com.pppppap.rpc.codec.Codec;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -24,17 +25,13 @@ public class NonblockingServer {
     private AcceptThread acceptThread;
     /** 选择器 */
     private SelectNextSelectorThread nextSelectorThread;
-    /** 默认selectorThread数量 */
-    private static int defaultSelectorNum = 3;
+    private Codec codec;
 
-    public NonblockingServer() {
-        this(defaultSelectorNum);
-    }
-
-    public NonblockingServer(int selectorThreadNum) {
+    NonblockingServer(int selectorThreadNum, Codec codec) {
         if (selectorThreadNum < 1) {
             throw new IllegalArgumentException("SelectorThread线程数量不能低于1");
         }
+        this.codec = codec;
         selectorThreads = new SelectorThread[selectorThreadNum];
         try {
             for (int i = 0; i < selectorThreads.length; i++) {
@@ -45,6 +42,10 @@ public class NonblockingServer {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void listen(int port) {
+        listen("0.0.0.0", port);
     }
 
     public void listen(String host, int port) {
@@ -196,7 +197,8 @@ public class NonblockingServer {
                     clientChannel.configureBlocking(false);
                     final SelectionKey key = clientChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE | SelectionKey.OP_CONNECT);
                     // 每个连接都绑定一个Dispatcher
-                    key.attach(new Dispatcher(new JdkCodec()));
+                    ChannelContext context = new ChannelContext(clientChannel);
+                    key.attach(new Dispatcher(context, codec));
                 } catch (Exception e) {
                     try {
                         clientChannel.close();
