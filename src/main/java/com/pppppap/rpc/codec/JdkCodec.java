@@ -5,7 +5,7 @@ import com.pppppap.rpc.RpcException;
 import java.io.*;
 
 /**
- * TODO
+ * 使用Jdk提供的序列化方式，对象必须实现{@link Serializable}接口
  *
  * @author liujinrui
  * @since 2019/12/25 10:09
