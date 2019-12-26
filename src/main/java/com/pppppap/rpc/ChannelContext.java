@@ -43,7 +43,9 @@ public class ChannelContext {
     }
 
     public void send(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        final ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length + 4);
+        buffer.putInt(bytes.length);
+        buffer.put(bytes);
         buffer.flip();
         try {
             channel.write(buffer);
