@@ -195,7 +195,7 @@ public class NonblockingServer {
             submit(() -> {
                 try {
                     clientChannel.configureBlocking(false);
-                    final SelectionKey key = clientChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE | SelectionKey.OP_CONNECT);
+                    final SelectionKey key = clientChannel.register(selector, SelectionKey.OP_READ);
                     // 每个连接都绑定一个Dispatcher
                     ChannelContext context = new ChannelContext(clientChannel, codec);
                     key.attach(new Dispatcher(context, codec));
