@@ -12,7 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * TODO
+ * 负责处理消息的读写和转发。
+ * 每个SocketChannel都绑定了一个Dispatcher对象。
  *
  * @author liujinrui
  * @since 2019/12/25 11:11
@@ -21,8 +22,8 @@ public class Dispatcher {
     // 保存上次接收到而没有没读取的数据
     private ByteBuffer cumulation;
     private Codec codec;
-    private static final Map<Type, List<Handler<?>>> handlers = new HashMap<>();
     private ChannelContext context;
+    private static final Map<Type, List<Handler<?>>> handlers = new HashMap<>();
 
     public Dispatcher(ChannelContext context, Codec codec) {
         this.context = context;
@@ -52,6 +53,12 @@ public class Dispatcher {
         }
     }
 
+    /**
+     * 解码。前4个字节是消息体的长度。
+     *
+     * @param in 接收到的数据
+     * @return 解码后的对象
+     */
     protected Object callDecode(ByteBuffer in) {
         if (in.remaining() < 4) return null;
         in.mark();
@@ -64,6 +71,9 @@ public class Dispatcher {
         return codec.decode(bytes);
     }
 
+    /**
+     * 调用对应的处理器执行
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     protected void handle(Object o) {
         final List<Handler<?>> list = handlers.get(o.getClass());
@@ -81,7 +91,10 @@ public class Dispatcher {
         }
     }
 
-    public static void addHandler(Handler handler) {
+    /**
+     * 添加处理器
+     */
+    public static void addHandler(Handler<?> handler) {
         if (handler == null) {
             throw new NullPointerException("handler不能为null");
         }
