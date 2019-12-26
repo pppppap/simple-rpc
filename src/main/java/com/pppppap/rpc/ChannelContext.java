@@ -1,5 +1,7 @@
 package com.pppppap.rpc;
 
+import com.pppppap.rpc.codec.Codec;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -13,8 +15,9 @@ import java.nio.channels.SocketChannel;
  */
 public class ChannelContext {
     private SocketChannel channel;
+    private Codec codec;
 
-    public ChannelContext(SocketChannel channel) {
+    public ChannelContext(SocketChannel channel, Codec codec) {
         this.channel = channel;
     }
 
@@ -46,5 +49,9 @@ public class ChannelContext {
         } catch (IOException e) {
             throw new RpcException("发送数据失败", e);
         }
+    }
+
+    public Codec codec(){
+        return codec;
     }
 }
