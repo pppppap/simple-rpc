@@ -16,7 +16,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * TODO
+ * 简单功能的客户端
  *
  * @author liujinrui
  * @since 2019/12/25 18:27
@@ -58,6 +58,11 @@ public class Client {
                     while (iterator.hasNext()) {
                         final SelectionKey key = iterator.next();
                         iterator.remove();
+                        // skip not valid key
+                        if (!key.isValid()) {
+                            key.cancel();
+                            continue;
+                        }
                         if (key.isReadable()) {
                             handRead();
                         }
@@ -73,13 +78,19 @@ public class Client {
         thread.start();
     }
 
-    private void handRead() throws IOException {
+    private void handRead() {
         ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-        int read = channel.read(buffer);
-        if (read == -1) {
+        try {
+            int read = channel.read(buffer);
+            if (read == -1) {
+                close();
+                return;
+            }
+        } catch (IOException e) {
+            // ignore exception
             close();
-            return;
         }
+
         buffer.flip();
         if (this.buffer == null || !this.buffer.hasRemaining()) {
             this.buffer = buffer;
