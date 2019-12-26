@@ -42,7 +42,8 @@ public class ChannelContext {
         }
     }
 
-    public void send(byte[] bytes) {
+    public void send(Object obj) {
+        final byte[] bytes = codec.code(obj);
         final ByteBuffer buffer = ByteBuffer.allocateDirect(bytes.length + 4);
         buffer.putInt(bytes.length);
         buffer.put(bytes);
