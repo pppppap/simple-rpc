@@ -7,9 +7,7 @@ import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 负责处理消息的读写和转发。
@@ -23,7 +21,7 @@ public class Dispatcher {
     private ByteBuffer cumulation;
     private Codec codec;
     private ChannelContext context;
-    private static final Map<Type, List<Handler<?>>> handlers = new HashMap<>();
+    private static final List<HandlerNode> handlers = new ArrayList<>();
 
     public Dispatcher(ChannelContext context, Codec codec) {
         this.context = context;
@@ -76,8 +74,8 @@ public class Dispatcher {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     protected void handle(Object o) {
-        final List<Handler<?>> list = handlers.get(o.getClass());
-        if (list == null) {
+        final List<Handler<?>> list = findHandlers(o.getClass());
+        if (list.isEmpty()) {
             String s = MessageFormat.format("warn:{0}没有对应的处理器", o.getClass());
             System.out.println(s);
         } else {
@@ -98,9 +96,8 @@ public class Dispatcher {
         if (handler == null) {
             throw new NullPointerException("handler不能为null");
         }
-        final Type target = getGeneric(handler);
-        handlers.computeIfAbsent(target, k -> new ArrayList<>());
-        handlers.get(target).add(handler);
+        final HandlerNode node = getGeneric(handler);
+        handlers.add(node);
     }
 
     /**
@@ -108,18 +105,46 @@ public class Dispatcher {
      *
      * @return 泛型Type
      */
-    private static Type getGeneric(Handler<?> handler) {
+    private static HandlerNode getGeneric(Handler<?> handler) {
+        Class<?> clazz = null;
         for (Type type : handler.getClass().getGenericInterfaces()) {
             if (type instanceof ParameterizedType) {
                 ParameterizedType t = (ParameterizedType) type;
                 if (Handler.class.equals(t.getRawType())) {
                     final Type[] types = t.getActualTypeArguments();
                     if (types != null && types.length > 0) {
-                        return types[0];
+                        if (types[0] instanceof ParameterizedType) {
+                            clazz = (Class<?>) ((ParameterizedType) types[0]).getRawType();
+                        } else {
+                            clazz = (Class<?>) types[0];
+                        }
                     }
                 }
             }
         }
-        return Object.class;
+        if (clazz == null) {
+            clazz = Object.class;
+        }
+        return new HandlerNode(clazz, handler);
+    }
+
+    private static List<Handler<?>> findHandlers(Class<?> clazz) {
+        List<Handler<?>> list = new ArrayList<>();
+        for (HandlerNode node : handlers) {
+            if (node.clazz.isAssignableFrom(clazz)) {
+                list.add(node.handler);
+            }
+        }
+        return list;
+    }
+
+    static class HandlerNode {
+        private Class<?> clazz;
+        private Handler<?> handler;
+
+        public HandlerNode(Class<?> clazz, Handler<?> handler) {
+            this.clazz = clazz;
+            this.handler = handler;
+        }
     }
 }
