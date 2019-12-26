@@ -6,21 +6,17 @@ import com.pppppap.rpc.RpcException;
 import com.pppppap.rpc.codec.Codec;
 import com.pppppap.rpc.codec.JdkCodec;
 
-import java.lang.reflect.Type;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
- * TODO
+ * 通过此类调整参数构造服务器
  *
  * @author liujinrui
  * @since 2019/12/26 11:48
  */
 public class ServerBuilder {
+    /** 默认处理读写、执行业务的线程为3个 */
     private int workerThreads = 3;
+    /** 默认为{@link JdkCodec} ,可通过实现{@link Codec}接口实现自定义的解编码器 */
     private Class<? extends Codec> codecClass = JdkCodec.class;
-    private Map<Type, List<Handler<?>>> map = new HashMap<>();
 
     public static ServerBuilder newBuilder() {
         return new ServerBuilder();
@@ -29,9 +25,7 @@ public class ServerBuilder {
     public NonblockingServer build() {
         try {
             final Codec codec = codecClass.newInstance();
-            NonblockingServer server = new NonblockingServer(workerThreads, codec);
-
-            return server;
+            return new NonblockingServer(workerThreads, codec);
         } catch (Exception e) {
             throw new RpcException(e);
         }
@@ -50,9 +44,5 @@ public class ServerBuilder {
     public ServerBuilder addLast(Handler<?> handler) {
         Dispatcher.addHandler(handler);
         return this;
-    }
-
-    public Map<Type, List<Handler<?>>> getMap() {
-        return map;
     }
 }
