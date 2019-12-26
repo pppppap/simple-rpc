@@ -1,6 +1,6 @@
 package com.pppppap.rpc;
 
-import com.pppppap.rpc.transport.NonblockingServer;
+import com.pppppap.rpc.server.NonblockingServer;
 
 /**
  * TODO
