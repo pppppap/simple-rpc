@@ -1,4 +1,7 @@
-package com.pppppap.rpc.transport;
+package com.pppppap.rpc.server;
+
+import com.pppppap.rpc.Dispatcher;
+import com.pppppap.rpc.codec.JdkCodec;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -131,9 +134,14 @@ public class NonblockingServer {
                     while (start && iterator.hasNext()) {
                         SelectionKey key = iterator.next();
                         iterator.remove();
+                        if (!key.isValid()) {
+                            key.cancel();
+                            continue;
+                        }
                         SocketChannel channel = (SocketChannel) key.channel();
                         if (key.isReadable()) {
-                            handRead(channel);
+                            final Dispatcher dispatcher = (Dispatcher) key.attachment();
+                            handRead(channel, dispatcher);
                         } else if (key.isWritable()) {
                             handWrite(channel);
                         }
@@ -154,19 +162,25 @@ public class NonblockingServer {
         /**
          * 这里简单的把输出打印出来
          */
-        private void handRead(SocketChannel channel) throws IOException {
-            ByteBuffer buffer = ByteBuffer.allocate(1024);
-            int read = channel.read(buffer);
-            if (read == -1) {
-                System.out.println(channel.getRemoteAddress() + " 断开连接");
-                channel.close();
-            } else {
-                byte[] bytes = new byte[read];
-                buffer.flip();
-                buffer.get(bytes);
-                System.out.println(new String(bytes));
-                buffer.clear();
+        private void handRead(SocketChannel channel, Dispatcher dispatcher) throws IOException {
+            ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+            try {
+                int read = channel.read(buffer);
+                if (read == -1) {
+                    close(channel);
+                } else {
+                    // 转换为读
+                    buffer.flip();
+                    dispatcher.onRead(buffer);
+                }
+            } catch (IOException e) {
+                close(channel);
             }
+        }
+
+        private void close(SocketChannel channel) throws IOException {
+            System.out.println(channel.getRemoteAddress() + " 断开连接");
+            channel.close();
         }
 
         private void handWrite(SocketChannel channel) {
@@ -180,7 +194,9 @@ public class NonblockingServer {
             submit(() -> {
                 try {
                     clientChannel.configureBlocking(false);
-                    clientChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+                    final SelectionKey key = clientChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE | SelectionKey.OP_CONNECT);
+                    // 每个连接都绑定一个Dispatcher
+                    key.attach(new Dispatcher(new JdkCodec()));
                 } catch (Exception e) {
                     try {
                         clientChannel.close();
