@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * 负责处理消息的读写和转发。
@@ -21,7 +23,7 @@ public class Dispatcher {
     private ByteBuffer cumulation;
     private Codec codec;
     private ChannelContext context;
-    private static final List<HandlerNode> handlers = new ArrayList<>();
+    public static HandlerStore store = new HandlerStore();
 
     public Dispatcher(ChannelContext context, Codec codec) {
         this.context = context;
@@ -74,7 +76,7 @@ public class Dispatcher {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     protected void handle(Object o) {
-        final List<Handler<?>> list = findHandlers(o.getClass());
+        final List<Handler<?>> list = store.findHandlers(o.getClass());
         if (list.isEmpty()) {
             String s = MessageFormat.format("warn:{0}没有对应的处理器", o.getClass());
             System.out.println(s);
@@ -89,62 +91,79 @@ public class Dispatcher {
         }
     }
 
-    /**
-     * 添加处理器
-     */
-    public static void addHandler(Handler<?> handler) {
-        if (handler == null) {
-            throw new NullPointerException("handler不能为null");
-        }
-        final HandlerNode node = getGeneric(handler);
-        handlers.add(node);
+    public static synchronized void addHandler(Handler<?> handler) {
+        store.addHandler(handler);
     }
 
-    /**
-     * 获取Handler的泛型类型
-     *
-     * @return 泛型Type
-     */
-    private static HandlerNode getGeneric(Handler<?> handler) {
-        Class<?> clazz = null;
-        for (Type type : handler.getClass().getGenericInterfaces()) {
-            if (type instanceof ParameterizedType) {
-                ParameterizedType t = (ParameterizedType) type;
-                if (Handler.class.equals(t.getRawType())) {
-                    final Type[] types = t.getActualTypeArguments();
-                    if (types != null && types.length > 0) {
-                        if (types[0] instanceof ParameterizedType) {
-                            clazz = (Class<?>) ((ParameterizedType) types[0]).getRawType();
-                        } else {
-                            clazz = (Class<?>) types[0];
+    static class HandlerStore {
+        private final List<HandlerNode> handlers = new ArrayList<>();
+        /** 缓存结果 */
+        private final Map<Class<?>, List<Handler<?>>> cache = new WeakHashMap<>();
+
+        private List<Handler<?>> findHandlers(Class<?> clazz) {
+            final List<Handler<?>> cacheList = cache.get(clazz);
+            if (cacheList != null) {
+                return cacheList;
+            }
+            List<Handler<?>> list = new ArrayList<>();
+            for (HandlerNode node : handlers) {
+                if (node.clazz.isAssignableFrom(clazz)) {
+                    list.add(node.handler);
+                }
+            }
+            synchronized (cache) {
+                cache.put(clazz, list);
+            }
+            return list;
+        }
+
+        /**
+         * 添加处理器
+         */
+        public void addHandler(Handler<?> handler) {
+            if (handler == null) {
+                throw new NullPointerException("handler不能为null");
+            }
+            final HandlerNode node = getGeneric(handler);
+            handlers.add(node);
+        }
+
+        /**
+         * 获取Handler的泛型类型
+         *
+         * @return 泛型Type
+         */
+        private HandlerNode getGeneric(Handler<?> handler) {
+            Class<?> clazz = null;
+            for (Type type : handler.getClass().getGenericInterfaces()) {
+                if (type instanceof ParameterizedType) {
+                    ParameterizedType t = (ParameterizedType) type;
+                    if (Handler.class.equals(t.getRawType())) {
+                        final Type[] types = t.getActualTypeArguments();
+                        if (types != null && types.length > 0) {
+                            if (types[0] instanceof ParameterizedType) {
+                                clazz = (Class<?>) ((ParameterizedType) types[0]).getRawType();
+                            } else {
+                                clazz = (Class<?>) types[0];
+                            }
                         }
                     }
                 }
             }
-        }
-        if (clazz == null) {
-            clazz = Object.class;
-        }
-        return new HandlerNode(clazz, handler);
-    }
-
-    private static List<Handler<?>> findHandlers(Class<?> clazz) {
-        List<Handler<?>> list = new ArrayList<>();
-        for (HandlerNode node : handlers) {
-            if (node.clazz.isAssignableFrom(clazz)) {
-                list.add(node.handler);
+            if (clazz == null) {
+                clazz = Object.class;
             }
+            return new HandlerNode(clazz, handler);
         }
-        return list;
-    }
 
-    static class HandlerNode {
-        private Class<?> clazz;
-        private Handler<?> handler;
+        static class HandlerNode {
+            private Class<?> clazz;
+            private Handler<?> handler;
 
-        public HandlerNode(Class<?> clazz, Handler<?> handler) {
-            this.clazz = clazz;
-            this.handler = handler;
+            public HandlerNode(Class<?> clazz, Handler<?> handler) {
+                this.clazz = clazz;
+                this.handler = handler;
+            }
         }
     }
 }
