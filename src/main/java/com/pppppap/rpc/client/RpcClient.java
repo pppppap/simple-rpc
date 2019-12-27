@@ -21,7 +21,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author liujinrui
  * @since 2019/12/25 18:27
  */
-public class Client {
+public class RpcClient {
     private SocketChannel channel;
     private Selector selector;
     private Codec codec;
@@ -30,14 +30,14 @@ public class Client {
     /** 保存接收到但未处理的数据 */
     private ByteBuffer buffer;
 
-    private Client() {
+    private RpcClient() {
         codec = new JdkCodec();
         queue = new LinkedBlockingQueue<>();
     }
 
-    public static Client open(String host, int port) {
+    public static RpcClient open(String host, int port) {
         try {
-            Client client = new Client();
+            RpcClient client = new RpcClient();
             client.connect(new InetSocketAddress(host, port));
             return client;
         } catch (IOException e) {
